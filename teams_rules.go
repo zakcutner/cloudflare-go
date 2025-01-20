@@ -49,6 +49,9 @@ type TeamsRuleSettings struct {
 	// Turns on ip category based filter on dns if the rule contains dns category checks
 	IPCategories bool `json:"ip_categories"`
 
+	// Turns on for explicitly ignoring cname domain category matches
+	IgnoreCNAMECategoryMatches *bool `json:"ignore_cname_category_matches"`
+
 	// Allow parent MSP accounts to enable bypass their children's rules. Do not set them for non MSP accounts.
 	AllowChildBypass *bool `json:"allow_child_bypass,omitempty"`
 
@@ -64,8 +67,22 @@ type TeamsRuleSettings struct {
 	// Resolver policy settings.
 	DnsResolverSettings *TeamsDnsResolverSettings `json:"dns_resolvers,omitempty"`
 
+	ResolveDnsInternallySettings *TeamsResolveDnsInternallySettings `json:"resolve_dns_internally,omitempty"`
+
 	NotificationSettings *TeamsNotificationSettings `json:"notification_settings"`
+	Quarantine           *TeamsQuarantine           `json:"quarantine,omitempty"`
+	ForensicCopySettings *TeamsForensicCopySettings `json:"forensic_copy,omitempty"`
 }
+
+type TeamsForensicCopySettings struct {
+	Enabled bool `json:"enabled"`
+}
+
+type TeamsQuarantine struct {
+	FileTypes []FileType `json:"file_types"`
+}
+
+type FileType = string
 
 type TeamsGatewayUntrustedCertAction string
 
@@ -135,6 +152,18 @@ type (
 		VnetID                     string `json:"vnet_id,omitempty"`
 		RouteThroughPrivateNetwork *bool  `json:"route_through_private_network,omitempty"`
 	}
+
+	TeamsResolveDnsInternallySettings struct {
+		ViewID   string                                    `json:"view_id"`
+		Fallback TeamsResolveDnsInternallyFallbackStrategy `json:"fallback"`
+	}
+
+	TeamsResolveDnsInternallyFallbackStrategy string
+)
+
+const (
+	None      TeamsResolveDnsInternallyFallbackStrategy = "none"
+	PublicDns TeamsResolveDnsInternallyFallbackStrategy = "public_dns"
 )
 
 type TeamsDlpPayloadLogSettings struct {
@@ -146,10 +175,11 @@ type TeamsFilterType string
 type TeamsGatewayAction string
 
 const (
-	HttpFilter   TeamsFilterType = "http"
-	DnsFilter    TeamsFilterType = "dns"
-	L4Filter     TeamsFilterType = "l4"
-	EgressFilter TeamsFilterType = "egress"
+	HttpFilter        TeamsFilterType = "http"
+	DnsFilter         TeamsFilterType = "dns"
+	L4Filter          TeamsFilterType = "l4"
+	EgressFilter      TeamsFilterType = "egress"
+	DnsResolverFilter TeamsFilterType = "dns_resolver"
 )
 
 const (
@@ -167,6 +197,7 @@ const (
 	L4Override   TeamsGatewayAction = "l4_override"  // l4
 	Egress       TeamsGatewayAction = "egress"       // egress
 	AuditSSH     TeamsGatewayAction = "audit_ssh"    // l4
+	Resolve      TeamsGatewayAction = "resolve"      // resolve
 )
 
 func TeamsRulesActionValues() []string {
@@ -185,6 +216,7 @@ func TeamsRulesActionValues() []string {
 		string(L4Override),
 		string(Egress),
 		string(AuditSSH),
+		string(Resolve),
 	}
 }
 
@@ -198,21 +230,43 @@ func TeamsRulesUntrustedCertActionValues() []string {
 
 // TeamsRule represents an Teams wirefilter rule.
 type TeamsRule struct {
-	ID            string             `json:"id,omitempty"`
-	CreatedAt     *time.Time         `json:"created_at,omitempty"`
-	UpdatedAt     *time.Time         `json:"updated_at,omitempty"`
-	DeletedAt     *time.Time         `json:"deleted_at,omitempty"`
-	Name          string             `json:"name"`
-	Description   string             `json:"description"`
-	Precedence    uint64             `json:"precedence"`
-	Enabled       bool               `json:"enabled"`
-	Action        TeamsGatewayAction `json:"action"`
-	Filters       []TeamsFilterType  `json:"filters"`
-	Traffic       string             `json:"traffic"`
-	Identity      string             `json:"identity"`
-	DevicePosture string             `json:"device_posture"`
-	Version       uint64             `json:"version"`
-	RuleSettings  TeamsRuleSettings  `json:"rule_settings,omitempty"`
+	ID            string               `json:"id,omitempty"`
+	CreatedAt     *time.Time           `json:"created_at,omitempty"`
+	UpdatedAt     *time.Time           `json:"updated_at,omitempty"`
+	DeletedAt     *time.Time           `json:"deleted_at,omitempty"`
+	Name          string               `json:"name"`
+	Description   string               `json:"description"`
+	Precedence    uint64               `json:"precedence"`
+	Enabled       bool                 `json:"enabled"`
+	Action        TeamsGatewayAction   `json:"action"`
+	Filters       []TeamsFilterType    `json:"filters"`
+	Traffic       string               `json:"traffic"`
+	Identity      string               `json:"identity"`
+	DevicePosture string               `json:"device_posture"`
+	Version       uint64               `json:"version"`
+	RuleSettings  TeamsRuleSettings    `json:"rule_settings,omitempty"`
+	Schedule      *TeamsRuleSchedule   `json:"schedule,omitempty"`   // only available at DNS rules
+	Expiration    *TeamsRuleExpiration `json:"expiration,omitempty"` // only available at DNS rules
+}
+
+type TeamsRuleExpiration struct {
+	ExpiresAt *time.Time `json:"expires_at"`
+	Duration  *uint64    `json:"duration,omitempty"` // read only
+	Expired   bool       `json:"expired"`            // read only
+}
+
+// format HH:MM,HH:MM,....,HH:MM
+type TeamsScheduleTimes string
+
+type TeamsRuleSchedule struct {
+	Monday    TeamsScheduleTimes `json:"mon,omitempty"`
+	Tuesday   TeamsScheduleTimes `json:"tue,omitempty"`
+	Wednesday TeamsScheduleTimes `json:"wed,omitempty"`
+	Thursday  TeamsScheduleTimes `json:"thu,omitempty"`
+	Friday    TeamsScheduleTimes `json:"fri,omitempty"`
+	Saturday  TeamsScheduleTimes `json:"sat,omitempty"`
+	Sunday    TeamsScheduleTimes `json:"sun,omitempty"`
+	TimeZone  string             `json:"time_zone,omitempty"` // default to user TZ based on the user IP location, fall backs to colo TZ
 }
 
 // TeamsRuleResponse is the API response, containing a single rule.

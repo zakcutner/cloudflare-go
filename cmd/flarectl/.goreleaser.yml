@@ -1,3 +1,4 @@
+version: 2
 before:
   hooks:
     - cp ../../LICENSE .
@@ -20,4 +21,4 @@ archives:
 checksum:
   disable: true
 changelog:
-  skip: true
+  disable: true

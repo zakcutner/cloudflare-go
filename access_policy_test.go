@@ -55,6 +55,12 @@ var (
 				ApprovalsNeeded: 1,
 			},
 		},
+		InfrastructureConnectionRules: &AccessInfrastructureConnectionRules{
+			SSH: &AccessInfrastructureConnectionRulesSSH{
+				Usernames:       []string{"root", "ec2-user"},
+				AllowEmailAlias: BoolPtr(true),
+			},
+		},
 	}
 )
 
@@ -115,7 +121,13 @@ func TestAccessPolicies(t *testing.T) {
 					],
 					"approvals_needed": 1
 				  }
-				]
+				],
+				"connection_rules": {
+					"ssh": {
+						"usernames": ["root", "ec2-user"],
+						"allow_email_alias": true
+					}
+				}
 			  }
 			],
 			"result_info": {
@@ -138,6 +150,23 @@ func TestAccessPolicies(t *testing.T) {
 	mux.HandleFunc("/zones/"+testZoneID+"/access/apps/"+accessApplicationID+"/policies", handler)
 
 	actual, _, err = client.ListAccessPolicies(context.Background(), testZoneRC, ListAccessPoliciesParams{ApplicationID: accessApplicationID})
+
+	if assert.NoError(t, err) {
+		assert.Equal(t, []AccessPolicy{expectedAccessPolicy}, actual)
+	}
+
+	// Test Listing reusable policies
+	mux.HandleFunc("/accounts/"+testAccountID+"/access/policies", handler)
+
+	actual, _, err = client.ListAccessPolicies(context.Background(), testAccountRC, ListAccessPoliciesParams{})
+
+	if assert.NoError(t, err) {
+		assert.Equal(t, []AccessPolicy{expectedAccessPolicy}, actual)
+	}
+
+	mux.HandleFunc("/zones/"+testZoneID+"/access/policies", handler)
+
+	actual, _, err = client.ListAccessPolicies(context.Background(), testZoneRC, ListAccessPoliciesParams{})
 
 	if assert.NoError(t, err) {
 		assert.Equal(t, []AccessPolicy{expectedAccessPolicy}, actual)
@@ -197,7 +226,13 @@ func TestAccessPolicy(t *testing.T) {
 						"email_addresses": ["email1@example.com", "email2@example.com"],
 						"approvals_needed": 1
 					}
-				]
+				],
+				"connection_rules": {
+					"ssh": {
+						"usernames": ["root", "ec2-user"],
+						"allow_email_alias": true
+					}
+				}
 			}
 		}
 		`)
@@ -214,6 +249,23 @@ func TestAccessPolicy(t *testing.T) {
 	mux.HandleFunc("/zones/"+testZoneID+"/access/apps/"+accessApplicationID+"/policies/"+accessPolicyID, handler)
 
 	actual, err = client.GetAccessPolicy(context.Background(), testZoneRC, GetAccessPolicyParams{ApplicationID: accessApplicationID, PolicyID: accessPolicyID})
+
+	if assert.NoError(t, err) {
+		assert.Equal(t, expectedAccessPolicy, actual)
+	}
+
+	// Test getting a reusable policy
+	mux.HandleFunc("/accounts/"+testAccountID+"/access/policies/"+accessPolicyID, handler)
+
+	actual, err = client.GetAccessPolicy(context.Background(), testAccountRC, GetAccessPolicyParams{PolicyID: accessPolicyID})
+
+	if assert.NoError(t, err) {
+		assert.Equal(t, expectedAccessPolicy, actual)
+	}
+
+	mux.HandleFunc("/zones/"+testZoneID+"/access/policies/"+accessPolicyID, handler)
+
+	actual, err = client.GetAccessPolicy(context.Background(), testZoneRC, GetAccessPolicyParams{PolicyID: accessPolicyID})
 
 	if assert.NoError(t, err) {
 		assert.Equal(t, expectedAccessPolicy, actual)
@@ -273,7 +325,13 @@ func TestCreateAccessPolicy(t *testing.T) {
 						"email_addresses": ["email1@example.com", "email2@example.com"],
 						"approvals_needed": 1
 					}
-				]
+				],
+				"connection_rules": {
+					"ssh": {
+						"usernames": ["root", "ec2-user"],
+						"allow_email_alias": true
+					}
+				}
 			}
 		}
 		`)
@@ -311,6 +369,12 @@ func TestCreateAccessPolicy(t *testing.T) {
 				ApprovalsNeeded: 1,
 			},
 		},
+		InfrastructureConnectionRules: &AccessInfrastructureConnectionRules{
+			SSH: &AccessInfrastructureConnectionRulesSSH{
+				Usernames:       []string{"root", "ec2-user"},
+				AllowEmailAlias: BoolPtr(true),
+			},
+		},
 	}
 
 	mux.HandleFunc("/accounts/"+testAccountID+"/access/apps/"+accessApplicationID+"/policies", handler)
@@ -322,6 +386,24 @@ func TestCreateAccessPolicy(t *testing.T) {
 	}
 
 	mux.HandleFunc("/zones/"+testZoneID+"/access/apps/"+accessApplicationID+"/policies", handler)
+
+	actual, err = client.CreateAccessPolicy(context.Background(), testZoneRC, accessPolicy)
+
+	if assert.NoError(t, err) {
+		assert.Equal(t, expectedAccessPolicy, actual)
+	}
+
+	// Test creating a reusable policy
+	accessPolicy.ApplicationID = ""
+	mux.HandleFunc("/accounts/"+testAccountID+"/access/policies", handler)
+
+	actual, err = client.CreateAccessPolicy(context.Background(), testAccountRC, accessPolicy)
+
+	if assert.NoError(t, err) {
+		assert.Equal(t, expectedAccessPolicy, actual)
+	}
+
+	mux.HandleFunc("/zones/"+testZoneID+"/access/policies", handler)
 
 	actual, err = client.CreateAccessPolicy(context.Background(), testZoneRC, accessPolicy)
 
@@ -361,6 +443,12 @@ func TestCreateAccessPolicyAuthContextRule(t *testing.T) {
 			{
 				EmailAddresses:  []string{"email1@example.com", "email2@example.com"},
 				ApprovalsNeeded: 1,
+			},
+		},
+		InfrastructureConnectionRules: &AccessInfrastructureConnectionRules{
+			SSH: &AccessInfrastructureConnectionRulesSSH{
+				Usernames:       []string{"root", "ec2-user"},
+				AllowEmailAlias: BoolPtr(true),
 			},
 		},
 	}
@@ -410,7 +498,13 @@ func TestCreateAccessPolicyAuthContextRule(t *testing.T) {
 						"email_addresses": ["email1@example.com", "email2@example.com"],
 						"approvals_needed": 1
 					}
-				]
+				],
+				"connection_rules": {
+					"ssh": {
+						"usernames": ["root", "ec2-user"],
+						"allow_email_alias": true
+					}
+				}
 			}
 		}
 		`)
@@ -502,6 +596,12 @@ func TestUpdateAccessPolicy(t *testing.T) {
 				ApprovalsNeeded: 1,
 			},
 		},
+		InfrastructureConnectionRules: &AccessInfrastructureConnectionRules{
+			SSH: &AccessInfrastructureConnectionRulesSSH{
+				Usernames:       []string{"root", "ec2-user"},
+				AllowEmailAlias: BoolPtr(true),
+			},
+		},
 	}
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPut, r.Method, "Expected method 'PUT', got %s", r.Method)
@@ -552,7 +652,13 @@ func TestUpdateAccessPolicy(t *testing.T) {
 						"email_addresses": ["email1@example.com", "email2@example.com"],
 						"approvals_needed": 1
 					}
-				]
+				],
+				"connection_rules": {
+					"ssh": {
+						"usernames": ["root", "ec2-user"],
+						"allow_email_alias": true
+					}
+				}
 			}
 		}
 		`)
@@ -566,6 +672,22 @@ func TestUpdateAccessPolicy(t *testing.T) {
 	}
 
 	mux.HandleFunc("/zones/"+testZoneID+"/access/apps/"+accessApplicationID+"/policies/"+accessPolicyID, handler)
+	actual, err = client.UpdateAccessPolicy(context.Background(), testZoneRC, accessPolicy)
+
+	if assert.NoError(t, err) {
+		assert.Equal(t, expectedAccessPolicy, actual)
+	}
+
+	// Test updating reusable policies
+	accessPolicy.ApplicationID = ""
+	mux.HandleFunc("/accounts/"+testAccountID+"/access/policies/"+accessPolicyID, handler)
+	actual, err = client.UpdateAccessPolicy(context.Background(), testAccountRC, accessPolicy)
+
+	if assert.NoError(t, err) {
+		assert.Equal(t, expectedAccessPolicy, actual)
+	}
+
+	mux.HandleFunc("/zones/"+testZoneID+"/access/policies/"+accessPolicyID, handler)
 	actual, err = client.UpdateAccessPolicy(context.Background(), testZoneRC, accessPolicy)
 
 	if assert.NoError(t, err) {
@@ -609,6 +731,17 @@ func TestDeleteAccessPolicy(t *testing.T) {
 
 	mux.HandleFunc("/zones/"+testZoneID+"/access/apps/"+accessApplicationID+"/policies/"+accessPolicyID, handler)
 	err = client.DeleteAccessPolicy(context.Background(), testZoneRC, DeleteAccessPolicyParams{ApplicationID: accessApplicationID, PolicyID: accessPolicyID})
+
+	assert.NoError(t, err)
+
+	// Test deleting a reusable policy
+	mux.HandleFunc("/accounts/"+testAccountID+"/access/policies/"+accessPolicyID, handler)
+	err = client.DeleteAccessPolicy(context.Background(), testAccountRC, DeleteAccessPolicyParams{PolicyID: accessPolicyID})
+
+	assert.NoError(t, err)
+
+	mux.HandleFunc("/zones/"+testZoneID+"/access/policies/"+accessPolicyID, handler)
+	err = client.DeleteAccessPolicy(context.Background(), testZoneRC, DeleteAccessPolicyParams{PolicyID: accessPolicyID})
 
 	assert.NoError(t, err)
 }

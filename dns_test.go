@@ -98,9 +98,6 @@ func TestCreateDNSRecord(t *testing.T) {
 				"proxiable": true,
 				"proxied": false,
 				"ttl": 120,
-				"locked": false,
-				"zone_id": "d56084adb405e0b7e32c52321bf07be6",
-				"zone_name": "example.com",
 				"created_on": "2014-01-01T05:20:00Z",
 				"modified_on": "2014-01-01T05:20:00Z",
 				"data": {},
@@ -124,8 +121,6 @@ func TestCreateDNSRecord(t *testing.T) {
 		Proxiable:  true,
 		Proxied:    asciiInput.Proxied,
 		TTL:        asciiInput.TTL,
-		ZoneID:     testZoneID,
-		ZoneName:   "example.com",
 		CreatedOn:  createdOn,
 		ModifiedOn: modifiedOn,
 		Data:       map[string]interface{}{},
@@ -180,9 +175,6 @@ func TestListDNSRecords(t *testing.T) {
 					"proxiable": true,
 					"proxied": false,
 					"ttl": 120,
-					"locked": false,
-					"zone_id": "d56084adb405e0b7e32c52321bf07be6",
-					"zone_name": "example.com",
 					"created_on": "2014-01-01T05:20:00Z",
 					"modified_on": "2014-01-01T05:20:00Z",
 					"data": {},
@@ -214,9 +206,6 @@ func TestListDNSRecords(t *testing.T) {
 		Proxiable:  true,
 		Proxied:    &proxied,
 		TTL:        120,
-		Locked:     false,
-		ZoneID:     testZoneID,
-		ZoneName:   "example.com",
 		CreatedOn:  createdOn,
 		ModifiedOn: modifiedOn,
 		Data:       map[string]interface{}{},
@@ -275,9 +264,6 @@ func TestListDNSRecordsSearch(t *testing.T) {
 					"proxiable": true,
 					"proxied": true,
 					"ttl": 120,
-					"locked": false,
-					"zone_id": "d56084adb405e0b7e32c52321bf07be6",
-					"zone_name": "example.com",
 					"created_on": "2014-01-01T05:20:00Z",
 					"modified_on": "2014-01-01T05:20:00Z",
 					"data": {},
@@ -310,9 +296,6 @@ func TestListDNSRecordsSearch(t *testing.T) {
 		Proxiable:  true,
 		Proxied:    &proxied,
 		TTL:        120,
-		Locked:     false,
-		ZoneID:     testZoneID,
-		ZoneName:   "example.com",
 		CreatedOn:  createdOn,
 		ModifiedOn: modifiedOn,
 		Data:       map[string]interface{}{},
@@ -408,9 +391,6 @@ func TestListDNSRecordsPagination(t *testing.T) {
 		assert.Equal(t, expected["proxiable"].(bool), actualRecord.Proxiable)
 		assert.Equal(t, expected["proxied"].(bool), *actualRecord.Proxied)
 		assert.Equal(t, int(expected["ttl"].(float64)), actualRecord.TTL)
-		assert.Equal(t, expected["locked"].(bool), actualRecord.Locked)
-		assert.Equal(t, expected["zone_id"].(string), actualRecord.ZoneID)
-		assert.Equal(t, expected["zone_name"].(string), actualRecord.ZoneName)
 		assert.Equal(t, expected["data"], actualRecord.Data)
 		assert.Equal(t, expected["meta"], actualRecord.Meta)
 	}
@@ -436,9 +416,6 @@ func TestGetDNSRecord(t *testing.T) {
 				"proxiable": true,
 				"proxied": false,
 				"ttl": 120,
-				"locked": false,
-				"zone_id": "d56084adb405e0b7e32c52321bf07be6",
-				"zone_name": "example.com",
 				"created_on": "2014-01-01T05:20:00Z",
 				"modified_on": "2014-01-01T05:20:00Z",
 				"data": {},
@@ -467,8 +444,6 @@ func TestGetDNSRecord(t *testing.T) {
 		Proxiable:  true,
 		Proxied:    &proxied,
 		TTL:        120,
-		ZoneID:     testZoneID,
-		ZoneName:   "example.com",
 		CreatedOn:  createdOn,
 		ModifiedOn: modifiedOn,
 		Data:       map[string]interface{}{},
@@ -528,9 +503,6 @@ func TestUpdateDNSRecord(t *testing.T) {
 				"proxiable": true,
 				"proxied": false,
 				"ttl": 120,
-				"locked": false,
-				"zone_id": "d56084adb405e0b7e32c52321bf07be6",
-				"zone_name": "example.com",
 				"created_on": "2014-01-01T05:20:00Z",
 				"modified_on": "2014-01-01T05:20:00Z",
 				"data": {},
@@ -594,9 +566,6 @@ func TestUpdateDNSRecord_ClearComment(t *testing.T) {
 				"proxiable": true,
 				"proxied": false,
 				"ttl": 120,
-				"locked": false,
-				"zone_id": "d56084adb405e0b7e32c52321bf07be6",
-				"zone_name": "example.com",
 				"created_on": "2014-01-01T05:20:00Z",
 				"modified_on": "2014-01-01T05:20:00Z",
 				"comment":null,
@@ -651,9 +620,6 @@ func TestUpdateDNSRecord_KeepComment(t *testing.T) {
 				"proxiable": true,
 				"proxied": false,
 				"ttl": 120,
-				"locked": false,
-				"zone_id": "d56084adb405e0b7e32c52321bf07be6",
-				"zone_name": "example.com",
 				"created_on": "2014-01-01T05:20:00Z",
 				"modified_on": "2014-01-01T05:20:00Z",
 				"comment":null,
@@ -707,4 +673,100 @@ func TestDeleteDNSRecord(t *testing.T) {
 
 	err = client.DeleteDNSRecord(context.Background(), ZoneIdentifier(testZoneID), dnsRecordID)
 	require.NoError(t, err)
+}
+
+func TestCreateDNSRecordSettings(t *testing.T) {
+	setup()
+	defer teardown()
+
+	priority := uint16(10)
+	proxied := false
+	FlattenInput := DNSRecord{
+		Type:     "CNAME",
+		Name:     "example.com",
+		Content:  "example1.com",
+		TTL:      120,
+		Priority: &priority,
+		Proxied:  &proxied,
+		Settings: DNSRecordSettings{
+			FlattenCNAME: BoolPtr(true),
+		},
+	}
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method, "Expected method 'POST', got %s", r.Method)
+
+		var v DNSRecord
+		err := json.NewDecoder(r.Body).Decode(&v)
+		require.NoError(t, err)
+		assert.Equal(t, FlattenInput, v)
+
+		w.Header().Set("content-type", "application/json")
+		fmt.Fprint(w, `{
+			"success": true,
+			"errors": [],
+			"messages": [],
+			"result": {
+				"id": "372e67954025e0ba6aaa6d586b9e0b59",
+				"type": "CNAME",
+				"name": "example.com",
+				"content": "example1.com",
+				"proxiable": true,
+				"proxied": false,
+				"ttl": 120,
+				"created_on": "2014-01-01T05:20:00Z",
+				"modified_on": "2014-01-01T05:20:00Z",
+				"data": {},
+				"meta": {
+					"auto_added": true,
+					"source": "primary"
+				},
+				"settings": {
+					"flatten_cname": true
+				}
+			}
+		}`)
+	}
+
+	mux.HandleFunc("/zones/"+testZoneID+"/dns_records", handler)
+
+	createdOn, _ := time.Parse(time.RFC3339, "2014-01-01T05:20:00Z")
+	modifiedOn, _ := time.Parse(time.RFC3339, "2014-01-01T05:20:00Z")
+	want := DNSRecord{
+		ID:         "372e67954025e0ba6aaa6d586b9e0b59",
+		Type:       "CNAME",
+		Name:       "example.com",
+		Content:    "example1.com",
+		Proxiable:  true,
+		Proxied:    FlattenInput.Proxied,
+		TTL:        FlattenInput.TTL,
+		CreatedOn:  createdOn,
+		ModifiedOn: modifiedOn,
+		Data:       map[string]interface{}{},
+		Meta: map[string]interface{}{
+			"auto_added": true,
+			"source":     "primary",
+		},
+		Settings: DNSRecordSettings{
+			FlattenCNAME: BoolPtr(true),
+		},
+	}
+
+	_, err := client.CreateDNSRecord(context.Background(), ZoneIdentifier(""), CreateDNSRecordParams{})
+	assert.ErrorIs(t, err, ErrMissingZoneID)
+
+	actual, err := client.CreateDNSRecord(context.Background(), ZoneIdentifier(testZoneID), CreateDNSRecordParams{
+		Type:     "CNAME",
+		Name:     "example.com",
+		Content:  "example1.com",
+		TTL:      120,
+		Priority: &priority,
+		Proxied:  &proxied,
+		Settings: DNSRecordSettings{
+			FlattenCNAME: BoolPtr(true),
+		},
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, want, actual)
 }

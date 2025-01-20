@@ -2,11 +2,13 @@ package cloudflare
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTeamsAccount(t *testing.T) {
@@ -93,6 +95,9 @@ func TestTeamsAccountConfiguration(t *testing.T) {
 					},
 					"extended_email_matching": {
 						"enabled": true
+					},
+					"certificate": {
+						"id": "7559a944-3dd7-41bf-b183-360a814a8c36"
 					}
 				}
 			}
@@ -109,7 +114,7 @@ func TestTeamsAccountConfiguration(t *testing.T) {
 			Antivirus: &TeamsAntivirus{
 				EnabledDownloadPhase: true,
 				NotificationSettings: &TeamsNotificationSettings{
-					Enabled:    &trueValue,
+					Enabled:    BoolPtr(true),
 					Message:    "msg",
 					SupportURL: "https://hi.com",
 				},
@@ -137,6 +142,9 @@ func TestTeamsAccountConfiguration(t *testing.T) {
 			},
 			ExtendedEmailMatching: &TeamsExtendedEmailMatching{
 				Enabled: BoolPtr(true),
+			},
+			Certificate: &TeamsCertificateSetting{
+				ID: "7559a944-3dd7-41bf-b183-360a814a8c36",
 			},
 		})
 	}
@@ -169,6 +177,9 @@ func TestTeamsAccountUpdateConfiguration(t *testing.T) {
 					},
 					"extended_email_matching": {
 						"enabled": true
+					},
+					"custom_certificate": {
+						"enabled": true
 					}
 				}
 			}
@@ -182,6 +193,9 @@ func TestTeamsAccountUpdateConfiguration(t *testing.T) {
 		TLSDecrypt:        &TeamsTLSDecrypt{Enabled: true},
 		ProtocolDetection: &TeamsProtocolDetection{Enabled: true},
 		ExtendedEmailMatching: &TeamsExtendedEmailMatching{
+			Enabled: BoolPtr(true),
+		},
+		CustomCertificate: &TeamsCustomCertificate{
 			Enabled: BoolPtr(true),
 		},
 	}
@@ -219,7 +233,7 @@ func TestTeamsAccountGetLoggingConfiguration(t *testing.T) {
 
 	if assert.NoError(t, err) {
 		assert.Equal(t, actual, TeamsLoggingSettings{
-			RedactPii: true,
+			RedactPii: BoolPtr(true),
 			LoggingSettingsByRuleType: map[TeamsRuleType]TeamsAccountLoggingConfiguration{
 				TeamsDnsRuleType: {LogAll: false, LogBlocks: true},
 			},
@@ -245,7 +259,7 @@ func TestTeamsAccountUpdateLoggingConfiguration(t *testing.T) {
 	mux.HandleFunc("/accounts/"+testAccountID+"/gateway/logging", handler)
 
 	actual, err := client.TeamsAccountUpdateLoggingConfiguration(context.Background(), testAccountID, TeamsLoggingSettings{
-		RedactPii: true,
+		RedactPii: BoolPtr(true),
 		LoggingSettingsByRuleType: map[TeamsRuleType]TeamsAccountLoggingConfiguration{
 			TeamsDnsRuleType: {
 				LogAll:    false,
@@ -262,7 +276,7 @@ func TestTeamsAccountUpdateLoggingConfiguration(t *testing.T) {
 
 	if assert.NoError(t, err) {
 		assert.Equal(t, actual, TeamsLoggingSettings{
-			RedactPii: true,
+			RedactPii: BoolPtr(true),
 			LoggingSettingsByRuleType: map[TeamsRuleType]TeamsAccountLoggingConfiguration{
 				TeamsDnsRuleType:  {LogAll: false, LogBlocks: true},
 				TeamsHttpRuleType: {LogAll: true, LogBlocks: false},
@@ -270,6 +284,54 @@ func TestTeamsAccountUpdateLoggingConfiguration(t *testing.T) {
 			},
 		})
 	}
+}
+
+func TestTeamsAccountDisableRedactPIILoggingConfiguration(t *testing.T) {
+	setup()
+	defer teardown()
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPut, r.Method, "Expected method 'PUT', got %s", r.Method)
+
+		request := readJson(t, r)
+		require.False(t, request["redact_pii"].(bool))
+
+		w.Header().Set("content-type", "application/json")
+		fmt.Fprintf(w, `{
+			"success": true,
+			"errors": [],
+			"messages": [],
+			"result": {"settings_by_rule_type":{"dns":{"log_all":false,"log_blocks":true}, "http":{"log_all":true,"log_blocks":false}, "l4": {"log_all": false, "log_blocks": true}},"redact_pii":true}
+		}`)
+	}
+
+	mux.HandleFunc("/accounts/"+testAccountID+"/gateway/logging", handler)
+
+	_, err := client.TeamsAccountUpdateLoggingConfiguration(context.Background(), testAccountID, TeamsLoggingSettings{
+		RedactPii: BoolPtr(false),
+		LoggingSettingsByRuleType: map[TeamsRuleType]TeamsAccountLoggingConfiguration{
+			TeamsDnsRuleType: {
+				LogAll:    false,
+				LogBlocks: true,
+			},
+			TeamsHttpRuleType: {
+				LogAll: true,
+			},
+			TeamsL4RuleType: {
+				LogBlocks: true,
+			},
+		},
+	})
+	require.NoError(t, err)
+}
+
+func readJson(t *testing.T, r *http.Request) map[string]interface{} {
+	var result map[string]interface{}
+	decoder := json.NewDecoder(r.Body)
+	defer r.Body.Close()
+	err := decoder.Decode(&result)
+	require.NoError(t, err)
+	return result
 }
 
 func TestTeamsAccountGetDeviceConfiguration(t *testing.T) {
@@ -283,7 +345,7 @@ func TestTeamsAccountGetDeviceConfiguration(t *testing.T) {
 			"success": true,
 			"errors": [],
 			"messages": [],
-			"result": {"gateway_proxy_enabled": true,"gateway_udp_proxy_enabled":false, "root_certificate_installation_enabled":true}
+			"result": {"gateway_proxy_enabled": true,"gateway_udp_proxy_enabled":false, "root_certificate_installation_enabled":true, "use_zt_virtual_ip":false, "disable_for_time":3600}
 		}`)
 	}
 
@@ -296,6 +358,8 @@ func TestTeamsAccountGetDeviceConfiguration(t *testing.T) {
 			GatewayProxyEnabled:                true,
 			GatewayProxyUDPEnabled:             false,
 			RootCertificateInstallationEnabled: true,
+			UseZTVirtualIP:                     BoolPtr(false),
+			DisableForTime:                     3600,
 		})
 	}
 }
@@ -311,7 +375,7 @@ func TestTeamsAccountUpdateDeviceConfiguration(t *testing.T) {
 			"success": true,
 			"errors": [],
 			"messages": [],
-			"result": {"gateway_proxy_enabled": true,"gateway_udp_proxy_enabled":true, "root_certificate_installation_enabled":true}
+			"result": {"gateway_proxy_enabled": true,"gateway_udp_proxy_enabled":true, "root_certificate_installation_enabled":true, "use_zt_virtual_ip":true, "disable_for_time":3600}
 		}`)
 	}
 
@@ -321,6 +385,8 @@ func TestTeamsAccountUpdateDeviceConfiguration(t *testing.T) {
 		GatewayProxyUDPEnabled:             true,
 		GatewayProxyEnabled:                true,
 		RootCertificateInstallationEnabled: true,
+		UseZTVirtualIP:                     BoolPtr(true),
+		DisableForTime:                     3600,
 	})
 
 	if assert.NoError(t, err) {
@@ -328,6 +394,65 @@ func TestTeamsAccountUpdateDeviceConfiguration(t *testing.T) {
 			GatewayProxyEnabled:                true,
 			GatewayProxyUDPEnabled:             true,
 			RootCertificateInstallationEnabled: true,
+			UseZTVirtualIP:                     BoolPtr(true),
+			DisableForTime:                     3600,
+		})
+	}
+}
+
+func TestTeamsAccountGetConnectivityConfiguration(t *testing.T) {
+	setup()
+	defer teardown()
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method, "Expected method 'GET', got %s", r.Method)
+		w.Header().Set("content-type", "application/json")
+		fmt.Fprintf(w, `{
+			"success": true,
+			"errors": [],
+			"messages": [],
+			"result": {"icmp_proxy_enabled": false,"offramp_warp_enabled":false}
+		}`)
+	}
+
+	mux.HandleFunc("/accounts/"+testAccountID+"/zerotrust/connectivity_settings", handler)
+
+	actual, err := client.TeamsAccountConnectivityConfiguration(context.Background(), testAccountID)
+
+	if assert.NoError(t, err) {
+		assert.Equal(t, actual, TeamsConnectivitySettings{
+			ICMPProxyEnabled:   BoolPtr(false),
+			OfframpWARPEnabled: BoolPtr(false),
+		})
+	}
+}
+
+func TestTeamsAccountUpdateConnectivityConfiguration(t *testing.T) {
+	setup()
+	defer teardown()
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPut, r.Method, "Expected method 'PUT', got %s", r.Method)
+		w.Header().Set("content-type", "application/json")
+		fmt.Fprintf(w, `{
+			"success": true,
+			"errors": [],
+			"messages": [],
+			"result": {"icmp_proxy_enabled": true,"offramp_warp_enabled":true}
+		}`)
+	}
+
+	mux.HandleFunc("/accounts/"+testAccountID+"/zerotrust/connectivity_settings", handler)
+
+	actual, err := client.TeamsAccountConnectivityUpdateConfiguration(context.Background(), testAccountID, TeamsConnectivitySettings{
+		ICMPProxyEnabled:   BoolPtr(true),
+		OfframpWARPEnabled: BoolPtr(true),
+	})
+
+	if assert.NoError(t, err) {
+		assert.Equal(t, actual, TeamsConnectivitySettings{
+			ICMPProxyEnabled:   BoolPtr(true),
+			OfframpWARPEnabled: BoolPtr(true),
 		})
 	}
 }
